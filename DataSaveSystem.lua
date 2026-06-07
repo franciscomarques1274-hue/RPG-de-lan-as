@@ -15,10 +15,18 @@ function DataSaveSystem:Initialize()
     print("║  💾 SISTEMA DE SALVAMENTO INICIADO   ║")
     print("╚════════════════════════════════════════╝\n")
     
-    local DataStoreService = game:GetService("DataStoreService")
-    self.PlayerDataStore = DataStoreService:GetDataStore("PlayerData")
-    self.ProgressionStore = DataStoreService:GetDataStore("Progression")
-    self.InventoryStore = DataStoreService:GetDataStore("Inventory")
+    local success, err = pcall(function()
+        local DataStoreService = game:GetService("DataStoreService")
+        self.PlayerDataStore = DataStoreService:GetDataStore("PlayerData")
+        self.ProgressionStore = DataStoreService:GetDataStore("Progression")
+        self.InventoryStore = DataStoreService:GetDataStore("Inventory")
+    end)
+    
+    if not success then
+        print("[DataSaveSystem] ⚠️ Aviso: DataStore pode não estar disponível em teste local")
+        print("[DataSaveSystem] Dados não serão persistidos neste modo")
+        return
+    end
     
     local Players = game:GetService("Players")
     
@@ -33,13 +41,15 @@ function DataSaveSystem:Initialize()
     end)
     
     -- Auto-salva a cada 5 minutos
-    while true do
-        wait(300)
-        for _, player in pairs(Players:GetPlayers()) do
-            self:SavePlayerData(player)
+    task.spawn(function()
+        while true do
+            wait(300)
+            for _, player in pairs(Players:GetPlayers()) do
+                self:SavePlayerData(player)
+            end
+            print("[DataSaveSystem] 💾 Auto-save realizado " .. os.date("%H:%M:%S"))
         end
-        print("[DataSaveSystem] 💾 Auto-save realizado " .. os.date("%H:%M:%S"))
-    end
+    end)
 end
 
 --[[
@@ -60,6 +70,11 @@ function DataSaveSystem:SavePlayerData(player)
     local inventory = inventorySys:GetInventory(player.UserId)
     
     if not progressionStats or not inventory then return end
+    
+    if not self.ProgressionStore then
+        print("[DataSaveSystem] ⚠️ DataStore não disponível (modo teste local)")
+        return
+    end
     
     local success, err
     
@@ -134,6 +149,12 @@ function DataSaveSystem:LoadPlayerData(player)
     
     local progressionStats = progressionSys:GetPlayerStats(player.UserId)
     local inventory = inventorySys:GetInventory(player.UserId)
+    
+    if not self.ProgressionStore then
+        print("[DataSaveSystem] ⚠️ DataStore não disponível (modo teste local)")
+        print("[DataSaveSystem] ℹ️ Novo jogador! Dados padrão criados.")
+        return
+    end
     
     -- Tenta carregar progressão salva
     local success, progressionData = pcall(function()
